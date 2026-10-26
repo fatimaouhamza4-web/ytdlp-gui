@@ -1,0 +1,71 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos
+      - name: Fetch Python runtime and wheels
+        run: bash Tools/fetch-ios-dependencies.sh
+      - name: Build without signing
+        run: |
+          xcodebuild \
+            -project YTDLPGUI.xcodeproj \
+            -scheme YTDLPGUI-iOS \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS= \
+            DEVELOPMENT_TEAM= \
+            build
+      - name: Package IPA
+        run: |
+          APP=$(find build/Build/Products -maxdepth 2 -name "*.app" | head -n 1)
+          echo "Found app: $APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry YTDLPGUI-unsigned.ipa Payload
+      - name: Verify IPA
+        run: |
+          set -e
+          unzip -l YTDLPGUI-unsigned.ipa | head -n 30
+          APP=$(find Payload -maxdepth 1 -name "*.app" | head -n 1)
+          echo "App: $APP"
+          echo -n "MinimumOSVersion: "
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist"
+          echo -n "App bundle id: "
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist"
+          for APPEX in "$APP"/PlugIns/*.appex; do
+            echo -n "Extension bundle id: "
+            /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APPEX/Info.plist"
+          done
+          test -d "$APP/python"
+          test -d "$APP/app_packages/yt_dlp"
+          test -d "$APP/app_packages/yt_dlp_ejs"
+          echo "Python runtime and yt_dlp/yt_dlp_ejs are present"
+          echo "Signature check (unsigned app should report no entitlements):"
+          codesign -d --entitlements :- "$APP" 2>&1 || true
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: YTDLPGUI-unsigned-ipa
+          path: YTDLPGUI-unsigned.ipa
+          retention-days: 14

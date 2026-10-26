@@ -35,9 +35,6 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGN_ENTITLEMENTS= \
             DEVELOPMENT_TEAM= \
-            EXPANDED_CODE_SIGN_IDENTITY_NAME=- \
-            EXPANDED_CODE_SIGN_IDENTITY=- \
-            VALIDATE_EMBEDDED_BINARIES=NO \
             build
       - name: Package IPA
         run: |

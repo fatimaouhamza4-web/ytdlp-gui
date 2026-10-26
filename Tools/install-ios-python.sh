@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+# Python.xcframework/build/utils.sh reads these Xcode signing settings. When the target is built
+# with code signing disabled they are unset, so give the embedded frameworks an ad-hoc identity.
+export EXPANDED_CODE_SIGN_IDENTITY_NAME="${EXPANDED_CODE_SIGN_IDENTITY_NAME:--}"
+export EXPANDED_CODE_SIGN_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+
 VENDOR_RELATIVE="Vendor"
 XCFRAMEWORK_RELATIVE="$VENDOR_RELATIVE/Python.xcframework"
 
